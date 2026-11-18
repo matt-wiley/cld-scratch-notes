@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scratchpad</title>
+    <meta name="description" content="A local-first markdown scratch pad for quick capture. Paste anything, copy it back out in one click. Your notes never leave your browser." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <script>
+      // apply the saved theme before first paint to avoid a flash
+      try {
+        var t = localStorage.getItem('scratchpad:theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <img src="favicon.svg" alt="" width="22" height="22" />
+          <span>Scratchpad</span>
+          <button class="icon-btn sidebar-close" data-action="toggle-sidebar" title="Close menu" aria-label="Close menu">✕</button>
+        </div>
+        <div class="sidebar-top">
+          <label class="search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input id="search" type="search" placeholder="Search notes" autocomplete="off" spellcheck="false" />
+            <kbd>/</kbd>
+          </label>
+          <button class="icon-btn new-btn" data-action="new-note" title="New note (⌥N)" aria-label="New note">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+        </div>
+        <ul class="note-list" id="note-list" aria-label="Notes"></ul>
+        <div class="nav">
+          <button class="nav-item" data-action="open-trash" id="trash-nav">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+            <span class="label">Trash</span><span class="count" id="trash-count"></span>
+          </button>
+        </div>
+        <div class="sidebar-footer">
+          <button class="text-btn" data-action="open-io">Data &amp; settings</button>
+          <button class="text-btn" data-action="open-help">Shortcuts</button>
+          <div class="storage-meter" id="storage-meter"></div>
+          <a class="credit" href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer" title="Designed, built and deployed by Claude, an AI model made by Anthropic">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" /></svg>
+            Designed &amp; built by Claude
+          </a>
+        </div>
+      </aside>
+      <div class="scrim" data-action="toggle-sidebar"></div>
+
+      <main class="main" id="main">
+        <div class="topbar">
+          <button class="icon-btn menu-btn" data-action="toggle-sidebar" aria-label="Open menu">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+          <div class="meta" id="meta"></div>
+          <div class="toolbar" id="note-tools">
+            <div class="segmented" role="group" aria-label="View mode">
+              <button data-action="mode" data-mode="write" title="Write (⌘E toggles)">Write</button>
+              <button data-action="mode" data-mode="split" class="split-only" title="Write and preview side by side">Split</button>
+              <button data-action="mode" data-mode="read" title="Read and copy (⌘E toggles)">Read</button>
+            </div>
+            <button class="icon-btn" data-action="pin" id="pin-btn" title="Pin" aria-label="Pin"></button>
+            <button class="icon-btn" data-action="copy-note" title="Copy whole note" aria-label="Copy whole note">
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a1 1 0 0 1 1-1h9" /></svg>
+            </button>
+            <button class="icon-btn" data-action="download-note" title="Download as .md" aria-label="Download as markdown">
+              <svg viewBox="0 0 24 24"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14" /></svg>
+            </button>
+            <button class="icon-btn" data-action="trash-note" title="Move to trash" aria-label="Move to trash">
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+            </button>
+          </div>
+          <button class="icon-btn" data-action="cycle-theme" id="theme-btn" title="Theme" aria-label="Theme"></button>
+        </div>
+
+        <section class="editor-view" id="editor-view">
+          <div class="panes" id="panes">
+            <div class="pane write-pane">
+              <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Note" placeholder="Paste or type anything. Markdown works.&#10;&#10;- one string per line&#10;- `inline code` is one click to copy in Read mode&#10;- [ ] tasks get checkboxes"></textarea>
+            </div>
+            <div class="pane read-pane" id="read-pane">
+              <article class="md" id="preview"></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="trash-view" id="trash-view" hidden></section>
+      </main>
+    </div>
+
+    <!-- generic confirm -->
+    <dialog id="ask-dialog" class="dialog small">
+      <form method="dialog" id="ask-form">
+        <h2 id="ask-title"></h2>
+        <p id="ask-message" class="muted"></p>
+        <div class="dialog-actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn" data-close>Cancel</button>
+          <button type="submit" class="btn primary" id="ask-ok">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- data & settings -->
+    <dialog id="io-dialog" class="dialog">
+      <form method="dialog">
+        <h2>Data &amp; settings</h2>
+        <p class="muted">Notes live only in this browser's local storage. Nothing is sent anywhere.</p>
+        <h3>Auto-clear</h3>
+        <label class="inline-row">Move unpinned notes to the trash after
+          <select id="expire-select">
+            <option value="0">never</option>
+            <option value="1">1 day</option>
+            <option value="7">7 days</option>
+            <option value="30">30 days</option>
+          </select>
+          without edits.
+        </label>
+        <p class="muted small">Pinned notes are always kept. The trash empties itself after 7 days.</p>
+        <h3>Export</h3>
+        <div class="btn-row">
+          <button type="button" class="btn" data-action="export-json">Full backup (.json)</button>
+          <button type="button" class="btn" data-action="export-md">All notes (.md)</button>
+        </div>
+        <h3>Import</h3>
+        <p class="muted">A Scratchpad <code>.json</code> backup, or <code>.md</code> / <code>.txt</code> files (each becomes a note). You can also drop files onto the page.</p>
+        <div class="btn-row">
+          <label class="btn file-btn">Choose files…<input type="file" id="import-file" accept=".json,.md,.markdown,.txt,application/json,text/markdown,text/plain" multiple hidden /></label>
+          <label class="inline-check"><input type="checkbox" id="import-replace" /> Replace everything (JSON only)</label>
+        </div>
+        <h3 class="danger-text">Danger zone</h3>
+        <div class="btn-row"><button type="button" class="btn danger subtle" data-action="wipe">Erase all notes</button></div>
+        <div class="dialog-actions"><span class="spacer"></span><button type="button" class="btn" data-close>Done</button></div>
+      </form>
+    </dialog>
+
+    <!-- help -->
+    <dialog id="help-dialog" class="dialog small">
+      <form method="dialog">
+        <h2>Shortcuts</h2>
+        <table class="keys">
+          <tr><td><kbd>⌘V</kbd> outside the editor</td><td>Append to the current note</td></tr>
+          <tr><td><kbd>⌥N</kbd> or <kbd>n</kbd></td><td>New note</td></tr>
+          <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+          <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Next / previous note</td></tr>
+          <tr><td><kbd>⌘E</kbd></td><td>Toggle Write / Read</td></tr>
+          <tr><td><kbd>⌘B</kbd> <kbd>⌘I</kbd></td><td>Bold, italic</td></tr>
+          <tr><td><kbd>⌘K</kbd></td><td>Make the selection a link</td></tr>
+          <tr><td><kbd>Tab</kbd> / <kbd>⇧Tab</kbd></td><td>Indent / outdent lines</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Leave the editor, clear search</td></tr>
+        </table>
+        <p class="muted small">In Read mode, click any <code>inline code</code> to copy it, or hover any line, list item or code block for its copy button. ⇧-click a copy button to copy the markdown source instead.</p>
+        <div class="dialog-actions"><span class="spacer"></span><button type="button" class="btn" data-close>Done</button></div>
+      </form>
+    </dialog>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
